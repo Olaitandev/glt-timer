@@ -2,10 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  PostgresChangePayload,
-  RealtimePostgresChangesPayload,
-} from "@supabase/supabase-js";
+
 
 
 interface StageTimer {

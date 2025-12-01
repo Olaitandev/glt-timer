@@ -2,12 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  PostgresChangePayload,
-  RealtimePostgresChangesPayload,
-} from "@supabase/supabase-js";
-
-
 
 type TimerStatus = "running" | "paused" | "stopped";
 
