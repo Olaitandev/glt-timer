@@ -2,6 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  PostgresChangePayload,
+  RealtimePostgresChangesPayload,
+} from "@supabase/supabase-js";
+
+
 
 type TimerStatus = "running" | "paused" | "stopped";
 
@@ -23,22 +29,60 @@ export default function AdminPage() {
   const [timer, setTimer] = useState<StageTimer | null>(null);
   const [minutesInput, setMinutesInput] = useState("");
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Memoized fetch timer
   const fetchTimer = useCallback(async () => {
-    const { data } = await supabase.from("stage_timer").select("*").single();
-    if (data) setTimer(data);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from("stage_timer")
+        .select("*")
+        .eq("id", 1)
+        .single();
+
+      if (fetchError) {
+        // If no data exists, create initial record
+        if (fetchError.code === "PGRST116") {
+          const { data: newData, error: insertError } = await supabase
+            .from("stage_timer")
+            .insert({
+              id: 1,
+              duration: 300, // 5 minutes default
+              start_time: null,
+              status: "stopped",
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            setError("Failed to initialize timer: " + insertError.message);
+          } else if (newData) {
+            setTimer(newData);
+          }
+        } else {
+          setError("Failed to load timer: " + fetchError.message);
+        }
+      } else if (data) {
+        setTimer(data);
+      }
+    } catch (err) {
+      setError("Unexpected error: " + (err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Realtime subscription
   useEffect(() => {
     fetchTimer();
 
+    
     const channel = supabase
       .channel("timer-changes")
       .on(
-        "postgres_changes",
-        { event: "*", table: "stage_timer" },
+        "postgres_changes" as const, // <-- Fix: ensure literal type
+        { event: "*", schema: "public", table: "stage_timer" },
         (payload) => {
           setTimer(payload.new as StageTimer);
         }
@@ -127,7 +171,39 @@ export default function AdminPage() {
     return remaining;
   }, [timer, currentTime]);
 
-  if (!timer) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white text-2xl">Loading timer…</div>;
+  if (loading)
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white text-2xl">
+        Loading timer…
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white text-xl p-8">
+        <div className="bg-red-500/20 border border-red-500 rounded-lg p-6 max-w-2xl">
+          <h2 className="text-2xl font-bold mb-4">Error</h2>
+          <p>{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchTimer();
+            }}
+            className="mt-4 px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+
+  if (!timer)
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white text-2xl">
+        No timer found
+      </div>
+    );
 
   const remainingTime = getRemainingTime();
 

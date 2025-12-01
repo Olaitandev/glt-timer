@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  PostgresChangePayload,
+  RealtimePostgresChangesPayload,
+} from "@supabase/supabase-js";
+
 
 interface StageTimer {
   id: number;
@@ -54,7 +59,7 @@ export default function DisplayPage() {
     const channel = supabase
       .channel("stage_timer_display")
       .on(
-        "postgres_changes",
+        "postgres_changes" as const,
         { event: "UPDATE", schema: "public", table: "stage_timer" },
         (payload) => {
           setTimer(payload.new as StageTimer);
