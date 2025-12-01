@@ -25,7 +25,7 @@ export default function DisplayPage() {
   const [offsetMs, setOffsetMs] = useState(0);
   const [remaining, setRemaining] = useState(0);
 
-  const intervalRef = useRef<NodeJS.Timer | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadTimer = async () => {
     const { data } = await supabase
